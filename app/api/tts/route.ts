@@ -1,31 +1,82 @@
 import { NextResponse } from "next/server"
 
-// This is a placeholder for a real Eleven Labs (or other TTS service) integration.
-// In a real application, you would use an SDK or fetch directly from Eleven Labs.
-// For this sandbox, we'll simulate a response.
-
-// You would typically get this from environment variables:
-// const ELEVEN_LABS_API_KEY = process.env.ELEVEN_LABS_API_KEY;
-// const ELEVEN_LABS_VOICE_ID = "YOUR_VOICE_ID"; // e.g., a female voice ID
+// Eleven Labs API configuration
+const ELEVEN_LABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech"
+// You can find available voice IDs in your Eleven Labs dashboard or API documentation.
+// This is a common female voice ID.
+const DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM" // Rachel
 
 export async function POST(req: Request) {
-  const { text, language } = await req.json()
+  try {
+    const { text, language } = await req.json() // Language is passed but voice is fixed by ID for simplicity
 
-  if (!text) {
-    return new NextResponse("Text is required", { status: 400 })
+    if (!text) {
+      console.error("TTS API: Text is required but missing.")
+      return new NextResponse("Text is required", { status: 400 })
+    }
+
+    const elevenLabsApiKey = process.env.ELEVEN_LABS_API_KEY
+    if (!elevenLabsApiKey) {
+      console.error("ELEVEN_LABS_API_KEY is not set in environment variables.")
+      return new NextResponse(
+        JSON.stringify({ error: "Server configuration error: Eleven Labs API key is missing." }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        },
+      )
+    }
+
+    console.log(`TTS API: Requesting speech for text: "${text.substring(0, 50)}..."`)
+
+    const response = await fetch(`${ELEVEN_LABS_API_URL}/${DEFAULT_VOICE_ID}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": elevenLabsApiKey,
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: "eleven_multilingual_v2", // Or "eleven_turbo_v2" for faster, lower quality
+        voice_settings: {
+          stability: 0.75,
+          similarity_boost: 0.75,
+        },
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: "Unknown error" }))
+      console.error("Eleven Labs API Error:", response.status, response.statusText, errorData)
+      return new NextResponse(
+        JSON.stringify({
+          error: `Eleven Labs API failed: ${response.status} ${response.statusText} - ${errorData.message || "No message"}`,
+        }),
+        {
+          status: response.status,
+          headers: { "Content-Type": "application/json" },
+        },
+      )
+    }
+
+    // Eleven Labs typically returns audio/mpeg (MP3)
+    const contentType = response.headers.get("Content-Type") || "audio/mpeg"
+    console.log(`TTS API: Received audio response with Content-Type: ${contentType}`)
+
+    return new NextResponse(response.body, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+      },
+    })
+  } catch (error) {
+    console.error("TTS API Error:", error)
+    return new NextResponse(
+      JSON.stringify({ error: `Internal Server Error: ${error instanceof Error ? error.message : String(error)}` }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    )
   }
-
-  // --- SIMULATED ELEVEN LABS RESPONSE ---
-  // In a real scenario, you'd make an actual API call here.
-  // For demonstration, we'll return a small, silent audio blob.
-  // This ensures the audio element attempts to play something,
-  // allowing us to test the playback logic without a real API key.
-
-  return new NextResponse(new ArrayBuffer(0), {
-    status: 200,
-    headers: {
-      "Content-Type": "audio/mpeg",
-      "Content-Length": "0", // Indicate empty content
-    },
-  })
 }

@@ -3,8 +3,8 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'LinguaAi',
-  description: 'Created Tarendra Mallick',
-  generator: 'https://tarendra-mallick.vercel.app/',
+  description: 'Created By Tarendra Mallick',
+  generator: 'http://tarendra-mallick.vercel.app/',
 }
 
 export default function RootLayout({
